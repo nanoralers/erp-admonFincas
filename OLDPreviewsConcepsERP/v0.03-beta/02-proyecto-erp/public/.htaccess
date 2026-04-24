@@ -1,0 +1,95 @@
+# ════════════════════════════════════════════════════════════════════════════
+#  ERP FINCAS – /home/nano/www/erp-fincas/public/.htaccess
+#  Apache 2.4 + mod_rewrite
+# ════════════════════════════════════════════════════════════════════════════
+
+Options -Indexes +FollowSymLinks
+
+# ── URL Rewriting ────────────────────────────────────────────────────────────
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Pasar el subdominio como variable de entorno (por si se necesita en PHP)
+    RewriteCond %{HTTP_HOST} ^([^.]+)\.nanoserver\.es$ [NC]
+    RewriteRule ^ - [E=TENANT_SUBDOMAIN:%1,L]
+
+    # No reescribir si el archivo/directorio existe físicamente
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # Todo lo demás → front controller
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+# ── Security Headers ──────────────────────────────────────────────────────────
+<IfModule mod_headers.c>
+    Header always set X-Frame-Options         "SAMEORIGIN"
+    Header always set X-Content-Type-Options  "nosniff"
+    Header always set X-XSS-Protection        "1; mode=block"
+    Header always set Referrer-Policy         "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy      "geolocation=(), microphone=(), camera=()"
+
+    # HSTS (solo HTTPS, incluye subdominios)
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+    # Eliminar cabeceras que revelan versión del servidor
+    Header unset X-Powered-By
+    Header always unset X-Powered-By
+</IfModule>
+
+# ── Bloquear acceso a archivos sensibles ─────────────────────────────────────
+<FilesMatch "(^\.env|^\.git|^composer\.(json|lock)$|^README\.md$|^INSTRUCCIONES)">
+    Require all denied
+</FilesMatch>
+
+# Bloquear también archivos de backup y editores
+<FilesMatch "(\.(bak|config|sql|fla|psd|ini|log|sh|inc|swp|dist)|~)$">
+    Require all denied
+</FilesMatch>
+
+# ── Configuración PHP (aplica si se usa mod_php) ──────────────────────────────
+<IfModule mod_php.c>
+    php_value upload_max_filesize   20M
+    php_value post_max_size         20M
+    php_value max_execution_time    60
+    php_value max_input_time        60
+    php_flag  display_errors        Off
+    php_flag  log_errors            On
+    php_value error_log             /home/nano/www/logs/erp-php-errors.log
+    php_value session.cookie_httponly 1
+    php_value session.cookie_secure   1
+    php_value session.use_strict_mode 1
+</IfModule>
+
+# ── Compresión GZIP ───────────────────────────────────────────────────────────
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE text/javascript
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/json
+    AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+
+# ── Cache de assets estáticos ─────────────────────────────────────────────────
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpeg               "access plus 1 year"
+    ExpiresByType image/png                "access plus 1 year"
+    ExpiresByType image/gif                "access plus 1 year"
+    ExpiresByType image/webp               "access plus 1 year"
+    ExpiresByType image/svg+xml            "access plus 1 year"
+    ExpiresByType image/x-icon             "access plus 1 year"
+    ExpiresByType text/css                 "access plus 3 months"
+    ExpiresByType text/javascript          "access plus 3 months"
+    ExpiresByType application/javascript   "access plus 3 months"
+    ExpiresByType application/font-woff2   "access plus 1 year"
+    ExpiresByType application/pdf          "access plus 1 month"
+</IfModule>
+
+# ── Páginas de error personalizadas ──────────────────────────────────────────
+ErrorDocument 403 /errors/403.php
+ErrorDocument 404 /errors/404.php
+ErrorDocument 500 /errors/500.php
